@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 export default function CreatePledgePage() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export default function CreatePledgePage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [pledgeId, setPledgeId] = useState<string | null>(null);
 
   if (status === 'loading') {
     return <div className="min-h-screen pt-24 flex items-center justify-center">Loading...</div>;
@@ -55,12 +58,23 @@ export default function CreatePledgePage() {
         throw new Error(errorText);
       }
 
-      router.push('/dashboard');
-    } catch (error: any) {
-      setError(error.message || 'Failed to create pledge');
+      const data = await response.json();
+      setPledgeId(data.id);
+      setShowPayment(true);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to create pledge');
     } finally {
       setLoading(false);
     }
+  };
+
+  const getPaymentAmount = () => {
+    if (formData.pledgeType === 'percentage') {
+      // For demo, calculate based on assumed quarterly earnings of $10,000
+      const assumedEarnings = 10000;
+      return (assumedEarnings * formData.percentageAmount) / 100;
+    }
+    return formData.fixedAmount;
   };
 
   const totalAllocation = formData.musicFund + formData.filmFund + formData.techFund;
@@ -251,22 +265,86 @@ export default function CreatePledgePage() {
             <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
           )}
 
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard')}
-              className="flex-1 px-6 py-4 border-2 border-black text-black rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || totalAllocation !== 100}
-              className="flex-1 px-6 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Creating...' : 'Create Pledge'}
-            </button>
-          </div>
+          {!showPayment ? (
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="flex-1 px-6 py-4 border-2 border-black text-black rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || totalAllocation !== 100}
+                className="flex-1 px-6 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating...' : 'Continue to Payment'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <p className="text-blue-900 font-semibold mb-2">
+                  Complete Your First Payment
+                </p>
+                <p className="text-blue-700 text-sm">
+                  Amount: ${getPaymentAmount().toFixed(2)} USD
+                </p>
+              </div>
+              
+              <PayPalScriptProvider
+                options={{
+                  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
+                  currency: 'USD',
+                }}
+              >
+                <PayPalButtons
+                  style={{ layout: 'vertical' }}
+                  createOrder={async () => {
+                    const response = await fetch('/api/paypal/create-order', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        amount: getPaymentAmount(),
+                        pledgeId,
+                      }),
+                    });
+                    const data = await response.json();
+                    return data.orderID;
+                  }}
+                  onApprove={async (data) => {
+                    const response = await fetch('/api/paypal/capture-order', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        orderID: data.orderID,
+                        pledgeId,
+                      }),
+                    });
+                    
+                    if (response.ok) {
+                      router.push('/dashboard?payment=success');
+                    } else {
+                      setError('Payment failed. Please try again.');
+                    }
+                  }}
+                  onError={(err) => {
+                    console.error('PayPal error:', err);
+                    setError('Payment error occurred. Please try again.');
+                  }}
+                />
+              </PayPalScriptProvider>
+
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="w-full px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Skip payment for now
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
