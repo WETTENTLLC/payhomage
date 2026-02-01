@@ -7,11 +7,7 @@ if (!databaseUrl) {
 
 const prismaClientSingleton = () => {
   return new PrismaClient({
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
+    datasourceUrl: databaseUrl,
   });
 };
 
