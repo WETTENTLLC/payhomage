@@ -6,9 +6,7 @@ if (!databaseUrl) {
 }
 
 const prismaClientSingleton = () => {
-  return new PrismaClient({
-    datasourceUrl: databaseUrl,
-  });
+  return new PrismaClient();
 };
 
 declare const globalThis: {
