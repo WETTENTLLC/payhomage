@@ -1,7 +1,11 @@
 import { PrismaClient } from '@prisma/client'
 
 const prismaClientSingleton = () => {
-  return new PrismaClient()
+  return new PrismaClient({
+    adapter: {
+      url: process.env.DATABASE_URL || 'file:./dev.db'
+    }
+  })
 }
 
 declare const globalThis: {
