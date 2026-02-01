@@ -66,12 +66,11 @@ export async function POST(req: NextRequest) {
     // Create transaction record
     const transaction = await prisma.transaction.create({
       data: {
-        userId: user.id,
-        pledgeId: pledgeId || null,
+        pledgeId: pledgeId || '',
         amount,
         paypalOrderId: orderID,
         paypalCaptureId: capture.id,
-        status: 'COMPLETED',
+        status: 'completed',
       },
     });
 
@@ -79,7 +78,7 @@ export async function POST(req: NextRequest) {
     if (pledgeId) {
       await prisma.pledge.update({
         where: { id: pledgeId },
-        data: { status: 'ACTIVE' },
+        data: { status: 'active' },
       });
     }
 
