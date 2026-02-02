@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("SIGNUP_ERROR", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Internal Error";
+    return new NextResponse(`Signup failed: ${errorMessage}`, { status: 500 });
   }
 }
