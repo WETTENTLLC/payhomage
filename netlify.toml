@@ -8,6 +8,10 @@
 [build.environment]
   NODE_VERSION = "20.19.0"
   DATABASE_URL = "file:./dev.db"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[functions]
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/*"
